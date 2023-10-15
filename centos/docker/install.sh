@@ -44,6 +44,10 @@ sudo yum-config-manager \
 
 # 安装Docker 以及常用插件
 sudo yum install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# 启动Docker
+systemctl start docker
+systemctl enable docker
 }
 
 echo "Confirm install Docker?"
