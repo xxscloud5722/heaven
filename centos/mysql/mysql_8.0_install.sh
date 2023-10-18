@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 # 安装wget
 echo -e "\033[1;33m wget \033[0m"
