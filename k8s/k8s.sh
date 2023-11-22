@@ -26,22 +26,22 @@ else
 fi
 
 backupMode="DEFAULT"
-if [ "$2" == "JOB" ]; then
+if [ "${2^^}" == "JOB" ]; then
   backupMode="JOB"
 fi
 
-if [ "${backupMode}" != "JOB" ]; then
-  echo "是否压缩存储? [1.是/否] (默认: 0)";
+if [ "${backupMode^^}" != "JOB" ]; then
+  echo "是否压缩存储? [Y/n] (默认: N)";
   # shellcheck disable=SC2162
   read compress
   if [ -z "${compress}" ]; then
-    compress='0'
+    compress='N'
   fi
 else
-  compress='1'
+  compress='Y'
 fi
 
-if [ "${compress}" -eq "1" ]; then
+if [ "${compress^^}" == "Y" ]; then
   echo -e "\e[34m启用压缩存储\e[0m"
 else
   echo -e "\e[34m禁用压缩存储\e[0m"
@@ -54,7 +54,7 @@ fi
 # 执行备份命令
 backupDir="./k8s_backup"
 if [ -d "$backupDir" ]; then
-  if [ "${backupMode}" != "JOB" ]; then
+  if [ "${backupMode^^}" != "JOB" ]; then
     echo -e "\e[93m备份目录已存在, 回车确认删除 (CTRL + C 结束执行)\e[0m"
     # shellcheck disable=SC2162
     read
@@ -93,13 +93,13 @@ done
 
 
 # =================================================================
-if [ "${compress}" -eq "1" ]; then
+if [ "${compress^^}" == "Y" ]; then
   # 压缩
-  if [ "${backupMode}" != "JOB" ]; then
-      fileName="$(date +"%Y%m%d%H%M%S").tar.gz"
+  if [ "${backupMode^^}" != "JOB" ]; then
+      fileName="k8s_$(date +"%Y%m%d%H%M%S").tar.gz"
   else
     if [ -z "${3}" ]; then
-      fileName="$(date +"%Y%m%d%H%M%S").tar.gz"
+      fileName="k8s_$(date +"%Y%m%d%H%M%S").tar.gz"
     else
       fileName="$3"
     fi
