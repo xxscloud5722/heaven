@@ -66,7 +66,7 @@ fi
 mkdir -p "$backupDir"
 
 # 获取所有命名空间
-namespaces=$(kubectl --kubeconfig="${configPath}" get namespaces -o jsonpath='{.items[*].metadata.name}')
+namespaces=$(./kubectl --kubeconfig="${configPath}" get namespaces -o jsonpath='{.items[*].metadata.name}')
 
 # 循环备份每个命名空间的配置
 for namespace in $namespaces; do
@@ -76,17 +76,17 @@ for namespace in $namespaces; do
   mkdir -p "${backupDir}/${namespace}"
 
   # 备份命名空间
-  kubectl --kubeconfig="${configPath}" get namespace "${namespace}" -o yaml > "${backupDir}/${namespace}/${namespace}.yaml"
+  ./kubectl --kubeconfig="${configPath}" get namespace "${namespace}" -o yaml > "${backupDir}/${namespace}/${namespace}.yaml"
 
   types=("cronJob" "daemonSet" "deployment" "job" "statefulSet" "ingress" "service" "configMap" "persistentVolumeClaim" "persistentVolume" "secret")
   for type in "${types[@]}"; do
     # 创建目录
     mkdir -p "${backupDir}/${namespace}/${type}"
     # 读取列表
-    resources=$(kubectl --kubeconfig="${configPath}" get "${type}" -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
+    resources=$(./kubectl --kubeconfig="${configPath}" get "${type}" -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
     for resource in $resources; do
       echo "[Backup]: ${namespace} / ${type} / ${resource}"
-      kubectl --kubeconfig="${configPath}" get "${type}" "${resource}" -n "${namespace}" -o yaml > "$backupDir/${namespace}/${type}/${resource}.yaml"
+      ./kubectl --kubeconfig="${configPath}" get "${type}" "${resource}" -n "${namespace}" -o yaml > "$backupDir/${namespace}/${type}/${resource}.yaml"
     done
   done
 done
