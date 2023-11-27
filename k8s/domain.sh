@@ -3,9 +3,10 @@
 # 获取查询结果
 echo "Scan Domain ..."
 DOMAIN_RESULT=$(./domain scan ./configs/domain.txt --json true)
+DATE=$(date "+%m.%d")
 
 function send() {
-  robot="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=404028b9-1e57-4f95-b6be-c0c2398919d8"
+  robot=$(cat "./configs/robot.txt")
   # shellcheck disable=SC2036
   # shellcheck disable=SC2030
   content="$1" | tr '\n' ' '
@@ -19,9 +20,8 @@ function send() {
 
 
 # Whois 域名
-content='### 小丁域名助手  11.27
-<font color="#dddddd">--------------------------------------</font>
-##### ① Whois检查结果'
+content="### 小丁域名助手  ${DATE}
+##### ① Whois检查结果"
 domain=$(echo "${DOMAIN_RESULT}" | jq -r '.Domain')
 domainLength=$(echo "${domain}" | jq 'length')
 for ((i=0; i<domainLength; i++)); do
@@ -51,8 +51,7 @@ ssl=$(echo "${DOMAIN_RESULT}" | jq -r '.SSL')
 sslLength=$(echo "${ssl}" | jq 'length')
 sslLengthR=$(expr "$sslLength" / 25 + 1)
 for ((j=0; j<sslLengthR; j++)); do
-  content="### 小丁域名助手  11.27
- <font color=\"#dddddd\">--------------------------------------</font>
+  content="### 小丁域名助手  ${DATE}
  ##### ② 证书检查结果-$(expr "$j" + 1)"
   for ((i=0; i<25; i++)); do
     index=$(expr "$j" \* 25 + "$i")
@@ -86,8 +85,7 @@ sslSuccess=$(echo "${DOMAIN_RESULT}" | jq -r ".SSLSuccess")
 domainError=$(echo "${DOMAIN_RESULT}" | jq -r ".DomainError")
 domainWarn=$(echo "${DOMAIN_RESULT}" | jq -r ".DomainWarn")
 domainSuccess=$(echo "${DOMAIN_RESULT}" | jq -r ".DomainSuccess")
-content=" ### 小丁域名助手  11.27
-<font color=\"#dddddd\">--------------------------------------</font>
+content=" ### 小丁域名助手  ${DATE}
 > ** 域名检查概述： **
 > <font color=\"#FF4500\">■ 已有风险：**${domainError}个**</font>
 > <font color=\"warning\">★ 即将过期：**${domainWarn}个**</font>
