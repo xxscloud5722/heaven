@@ -78,7 +78,7 @@ for namespace in $namespaces; do
   # 备份命名空间
   ./kubectl --kubeconfig="${configPath}" get namespace "${namespace}" -o yaml > "${backupDir}/${namespace}/${namespace}.yaml"
 
-  types=("cronJob" "daemonSet" "deployment" "job" "statefulSet" "ingress" "service" "configMap" "persistentVolumeClaim" "persistentVolume" "secret")
+  types=("cronJob" "daemonSet" "deployment" "job" "statefulSet" "ingress" "service" "configMap" "persistentVolumeClaim" "secret")
   for type in "${types[@]}"; do
     # 创建目录
     mkdir -p "${backupDir}/${namespace}/${type}"
@@ -91,6 +91,14 @@ for namespace in $namespaces; do
   done
 done
 
+# 备份 PersistentVolume
+echo -e "\e[1;32mBackup PV ..\e[0m"
+mkdir -p "${backupDir}/persistentVolume"
+resources=$(./kubectl --kubeconfig="${configPath}" get persistentVolume -o jsonpath='{.items[*].metadata.name}')
+for resource in $resources; do
+  echo "[Backup]: persistentVolume / ${resource}"
+  ./kubectl --kubeconfig="${configPath}" get persistentVolume "${resource}" -o yaml > "$backupDir/persistentVolume/${resource}.yaml"
+done
 
 # =================================================================
 if [ "${compress^^}" == "Y" ]; then
