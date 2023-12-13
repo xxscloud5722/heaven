@@ -42,6 +42,19 @@ CONFIG_PATH=$4
 day=$(date +"%Y_%m_%d")
 ./coscli sync "${LOCAL_FILE}" cos://"${BUCKET}/${day}/${COS_PATH}" -c "${CONFIG_PATH}"
 
+# 有效的文件
+if [ -z "$LOCAL_FILE" ]; then
+  exit 1
+fi
+# 路径是否存在
+if [ ! -e "$LOCAL_FILE" ]; then
+  exit 1
+fi
+# 获取规范化的绝对路径
+LOCAL_FILE=$(realpath "$LOCAL_FILE")
+# 检查是一个文件
+if [ -d "$LOCAL_FILE" ]; then
+  exit 1
+fi
 # 删除文件
-uuid=$(uuidgen)
-mv -f "${LOCAL_FILE}" "/tmp/${uuid}"
+rm -rf "${LOCAL_FILE}"
