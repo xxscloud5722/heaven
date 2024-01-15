@@ -18,15 +18,15 @@ fi
 namespace=${2}
 if [ "${3^^}" == "DEV" ]; then
   apiMemory="512Mi"
-  otherMemory="128Mi"
+  otherMemory="64Mi"
   checkJarOps=1
 elif [ "${3^^}" == "TEST" ]; then
   apiMemory="512Mi"
-  otherMemory="128Mi"
+  otherMemory="64Mi"
   checkJarOps=1
 elif [ "${3^^}" == "PREV" ]; then
   apiMemory="512Mi"
-  otherMemory="128Mi"
+  otherMemory="64Mi"
   checkJarOps=0
 elif [ "${3^^}" == "PROD" ]; then
   apiMemory="1024Mi"
@@ -40,11 +40,11 @@ fi
 
 
 function checkEnv() {
-  local array1=("${@}")
+  readarray -t array1 <<< "$1"
   if [ "$checkJarOps" -eq 1 ]; then
-    checkNames=("JAR_OPS" "JAVA_OPS" "APPLICATION_ENV" "APPLICATION_SYSTEM" "AGENT")
+    checkNames=("JAR_OPS" "JAVA_OPS" "APPLICATION_ENV" "APPLICATION_SYSTEM" "APPLICATION_NAME")
   else
-    checkNames=("JAR_OPS" "APPLICATION_ENV" "APPLICATION_SYSTEM" "AGENT")
+    checkNames=("JAVA_OPS" "APPLICATION_ENV" "APPLICATION_SYSTEM" "APPLICATION_NAME")
   fi
   for element in "${checkNames[@]}"; do
       # shellcheck disable=SC2199
@@ -57,8 +57,8 @@ function checkEnv() {
 }
 
 function checkSecretsEnv() {
-  local array1=("${@}")
-  checkNames=("billbear" "aliyun-shanghai" "billbear-shanghai")
+  array1=("$@")
+  checkNames=("billbear" "aliyun-shanghai")
   for element in "${checkNames[@]}"; do
       # shellcheck disable=SC2199
       # shellcheck disable=SC2076
@@ -72,10 +72,10 @@ function checkSecretsEnv() {
 # 检查无状态 + 有状态
 types=("deployment" "statefulSet")
 for type in "${types[@]}"; do
-  resources=$(./kubectl --kubeconfig="${configPath}" get "${type}" -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
+  resources=$(kubectl --kubeconfig="${configPath}" get "${type}" -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
   for resource in $resources; do
     # 读取详情
-    value=$(./kubectl --kubeconfig="${configPath}" get "${type}" "${resource}" -n "${namespace}" -o json)
+    value=$(kubectl --kubeconfig="${configPath}" get "${type}" "${resource}" -n "${namespace}" -o json)
 
     # 检查是否有名称标签
     result=$(echo "${value}" | jq -r '.metadata.labels.app')
@@ -92,18 +92,6 @@ for type in "${types[@]}"; do
       echo -e "\e[31m${namespace} / ${type} / ${resource} metadata.labels.module 没有服务类型\e[0m"
     fi
 
-    # 检查是否有中文名称
-    result=$(echo "${value}" | jq -r '.metadata.annotations.chineseName')
-    if [ "$result" = "null" ]; then
-      echo -e "\e[31m${namespace} / ${type} / ${resource} metadata.annotations.chinese-name: 没有中文名称\e[0m"
-    fi
-
-    # 检查是否有中文描述
-    result=$(echo "${value}" | jq -r '.metadata.annotations.chineseDescription')
-    if [ "$result" = "null" ]; then
-      echo -e "\e[31m${namespace} / ${type} / ${resource} metadata.annotations.chinese-description: 没有中文描述\e[0m"
-    fi
-
     # 检查资源限制是否是正确
     if [ "$module" = "api" ]; then
       # 后端
@@ -112,7 +100,7 @@ for type in "${types[@]}"; do
           echo -e "\e[31m${namespace} / ${type} / ${resource} 最低内存资源: 配置不正确或者没有值应该为 ($apiMemory)\e[0m"
       fi
       limitMemory=$(echo "${value}" | jq -r '.spec.template.spec.containers[0].resources.limits.memory')
-      if [ "$limitMemory" = "$apiMemory" ]; then
+      if [ "$limitMemory" != "$apiMemory" ]; then
           echo -e "\e[31m${namespace} / ${type} / ${resource} 最大内存资源: 配置不正确或者没有值应该为 ($apiMemory)\e[0m"
       fi
     else
@@ -122,7 +110,7 @@ for type in "${types[@]}"; do
           echo -e "\e[31m${namespace} / ${type} / ${resource} 最低内存资源: 配置不正确或者没有值应该为 ($otherMemory)\e[0m"
       fi
       limitMemory=$(echo "${value}" | jq -r '.spec.template.spec.containers[0].resources.limits.memory')
-      if [ "$limitMemory" = "$otherMemory" ]; then
+      if [ "$limitMemory" != "$otherMemory" ]; then
           echo -e "\e[31m${namespace} / ${type} / ${resource} 最大内存资源: 配置不正确或者没有值应该为 ($otherMemory)\e[0m"
       fi
     fi
@@ -143,7 +131,7 @@ for type in "${types[@]}"; do
         if checkEnv "$(echo "$envs" | jq -r '.[].name')"; then
           echo ""
         else
-          echo -e "\e[31m${namespace} / ${type} / ${resource} 环境变量应该为:JAR_OPS,  JAVA_OPS, APPLICATION_ENV, APPLICATION_SYSTEM, AGENT; 当前缺少环境变量 \e[0m"
+          echo -e "\e[31m${namespace} / ${type} / ${resource} 环境变量至少应该有:JAVA_OPS, APPLICATION_ENV, APPLICATION_SYSTEM, APPLICATION_NAME; 当前缺少环境变量 \e[0m"
         fi
         array_length=$(echo "${envs}" | jq 'length')
         for ((i=0; i<array_length; i++)); do
@@ -151,8 +139,10 @@ for type in "${types[@]}"; do
           itemValue=$(echo "$envs" | jq -r ".[$i].value")
           itemValueRefName=$(echo "$envs" | jq -r ".[$i].valueFrom.secretKeyRef.name")
           itemValueRefOPS=$(echo "$envs" | jq -r ".[$i].valueFrom.secretKeyRef.JAVA_OPS")
-          if [ "$checkJarOps" -eq 1 ] && [ "$itemName" = "JAR_OPS" ] && [ "$itemValue" = "--spring.cloud.nacos.discovery.weight=9999" ]; then
-            echo -e "\e[31m${namespace} / ${type} / ${resource} 环境变量(JAR_OPS)错误, 值必须是: --spring.cloud.nacos.discovery.weight=9999\e[0m"
+          if [ "$checkJarOps" -eq 1 ] && [ "$itemName" = "JAR_OPS" ]; then
+            if ! echo "$itemValue" | grep -q -- "--spring.cloud.nacos.discovery.weight=9999"; then
+              echo -e "\e[31m${namespace} / ${type} / ${resource} 环境变量(JAR_OPS)错误, 值必须包含: --spring.cloud.nacos.discovery.weight=9999\e[0m"
+            fi
           fi
           if [ "$itemValueRefName" = "JAVA_OPS" ] && [ "$itemValueRefName" = "billbear" ] && [ "$itemValueRefOPS" = "JAVA_OPS" ]; then
             echo -e "\e[31m${namespace} / ${type} / ${resource} 环境变量(JAVA_OPS)错误, 值必须是应用保密字典: billbear - JAVA_OPS\e[0m"
@@ -197,14 +187,15 @@ done
 
 
 # 检查密钥
-secrets=$(./kubectl --kubeconfig="${configPath}" get secret -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
-if checkSecretsEnv "$(echo "$envs" | jq -r '.[].name')"; then
+secrets=$(kubectl --kubeconfig="${configPath}" get secret -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
+if checkSecretsEnv "${secrets}"; then
   echo ""
 else
-  echo -e "\e[31m${namespace} / ${type} 保密字典应该有:billbear, aliyun-shanghai, billbear-shanghai; 当前缺少必要的保密字典 \e[0m"
+  # billbear-shanghai
+  echo -e "\e[31m${namespace} / ${type} 保密字典应该有:billbear, aliyun-shanghai; 当前缺少必要的保密字典 \e[0m"
 fi
 for resource in ${secrets}; do
-  value=$(./kubectl --kubeconfig="${configPath}" get secret "${resource}" -n "${namespace}" -o json)
+  value=$(kubectl --kubeconfig="${configPath}" get secret "${resource}" -n "${namespace}" -o json)
   result=$(echo "${value}" | jq -r '.type')
   if [ "$resource" = "aliyun-shanghai" ] && [ "$result" != "kubernetes.io/dockerconfigjson" ]; then
     echo -e "\e[31m${namespace} / ${type} / ${resource} 不是Docker授权类型\e[0m"
@@ -235,14 +226,14 @@ done
 
 
 # 检查svc
-services=$(./kubectl --kubeconfig="${configPath}" get service -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
+services=$(kubectl --kubeconfig="${configPath}" get service -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
 for resource in ${services}; do
   # 检查Service 名称 必须 svc 结果
   if [[ "$resource" != *-svc ]]; then
     echo -e "\e[31m${1} / Service / ${resource} 名称必须以svc 结尾\e[0m"
   fi
 
-  value=$(./kubectl --kubeconfig="${configPath}" get service "${resource}" -n "${namespace}" -o json)
+  value=$(kubectl --kubeconfig="${configPath}" get service "${resource}" -n "${namespace}" -o json)
 
   # 检查绑定的变量 必须是app 绑定
   result=$(echo "${value}" | jq -r '.spec.selector.app')
@@ -253,7 +244,7 @@ done
 
 
 # 检查pvc
-pvcs=$(./kubectl --kubeconfig="${configPath}" get persistentVolumeClaim -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
+pvcs=$(kubectl --kubeconfig="${configPath}" get persistentVolumeClaim -n "${namespace}" -o jsonpath='{.items[*].metadata.name}')
 for resource in ${pvcs}; do
   # 检查PersistentVolumeClaim 名称 必须 pvc 结果
   if [[ "$resource" != *-pvc ]]; then
