@@ -5,7 +5,7 @@
 
 # 获取查询结果
 echo "Scan Domain ..."
-DOMAIN_RESULT=$(./domain scan ./configs/domain.txt --json true)
+DOMAIN_RESULT=$(./domain scan ./configs/domain.txt --json)
 DATE=$(date "+%m.%d")
 
 function send() {
